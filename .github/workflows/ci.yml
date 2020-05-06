@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  # push:
+  #   branches: ["main"]
+  # pull_request:
+  #   branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Example action
+        uses: bjuvensjo/example-docker-action@main
+        # uses: ./ # Uses an action in the root directory
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+  # publish-apis:
+  #   uses: ./lab.yml
+  #   with:
+  #     runs-on: '["ubuntu-latest"]'
+  #     version: '["3.12"]'    

@@ -1,0 +1,96 @@
+name: Lab workflow
+
+on:
+  workflow_call:
+    inputs:
+      # github-token:
+      #   description: 'The GitHub token to use for authentication'
+      #   type: string
+      #   required: true      
+      runs-on:
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
+      version:
+        required: false
+        type: string
+        default: '["3.12"]'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJson(inputs.runs-on) }}
+        python-version: ${{ fromJson(inputs.version) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          path: build-repo
+          fetch-depth: 0 # Needed if wants to do commits etc
+          persist-credentials: false
+      - name: Checkout workflow code
+        uses: actions/checkout@v4
+        with:
+          repository: bjuvensjo/example-docker-action
+          path: workflow-repo
+          ref: main
+
+      - name: ls workspace
+        run: |
+          ls -al
+        shell: bash          
+        working-directory: ${{ github.workspace }}
+      - name: ls build-repo
+        run: |
+          ls -al
+        shell: bash          
+        working-directory: ${{ github.workspace }}/build-repo
+      - name: ls workflow-repo
+        run: |
+          ls -al
+        shell: bash          
+        working-directory: ${{ github.workspace }}/workflow-repo
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2        
+
+      # Perhaps not needed if running scripts with uv run
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+        working-directory: ${{ github.workspace }}/workflow-repo
+
+      # - name: Install the project
+      #   run: uv sync --all-extras --dev
+      #   working-directory: ${{ github.workspace }}/workflow-repo
+
+      # Needed to be able to push
+      - name: Configure Git credentials
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+        shell: bash
+        working-directory: ${{ github.workspace }}/build-repo        
+
+      - name: Run script and update build-repo
+        run: uv run src/example_docker_action/example.py ${{ github.workspace }}/build-repo/foo.txt
+        working-directory: ${{ github.workspace }}/workflow-repo     
+
+      - name: Commit build-repo  
+        run: |
+          git add foo.txt
+          git commit -m "Updated foo.txt"
+        shell: bash
+        working-directory: ${{ github.workspace }}/build-repo            
+
+      - name: Push changes in build-repo
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}        
+          directory: ${{ github.workspace }}/build-repo
+          branch: main
